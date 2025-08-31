@@ -1,0 +1,45 @@
+version: '3.1'
+
+services:
+    chez_evariste_wordpress:
+        depends_on:
+            - chez_evariste_db
+        image: wordpress:php8.0
+        restart: always
+        environment:
+            WORDPRESS_DB_HOST: ${CHEZ_EVARISTE_WORDPRESS_DB_HOST}
+            WORDPRESS_DB_NAME: ${CHEZ_EVARISTE_WORDPRESS_DB_NAME}
+            WORDPRESS_DB_USER: ${CHEZ_EVARISTE_WORDPRESS_DB_USER}
+            WORDPRESS_DB_PASSWORD: ${CHEZ_EVARISTE_WORDPRESS_DB_PASSWORD}
+        volumes:
+            - /var/chez_evariste_wordpress:/var/www/html
+        deploy:
+            labels:
+                - "traefik.enable=true"
+                - "traefik.http.routers.chez_evariste.rule=Host(`www.chez-evariste.gite-beaumont-saint-cyr.fr`,`chez-evariste.gite-beaumont-saint-cyr.fr`,`chez-evariste.418.ovh`)"
+                - "traefik.http.routers.chez_evariste.tls=true"
+                - "traefik.http.routers.chez_evariste.tls.certresolver=mytlschallenge"
+                - "traefik.http.services.chez_evariste.loadbalancer.server.port=80" # it seems you always need to give traefik a port so it 'notices' the service
+                - "traefik.http.routers.chez_evariste.middlewares=chez_evariste-redirectregex@docker"
+                - "traefik.http.middlewares.chez_evariste-redirectregex.redirectregex.regex=^https?://www.chez-evariste.gite-beaumont-saint-cyr.fr/(.*)"
+                - "traefik.http.middlewares.chez_evariste-redirectregex.redirectregex.replacement=https://chez-evariste.gite-beaumont-saint-cyr.fr/$${1}"
+                - "traefik.http.middlewares.chez_evariste-redirectregex.redirectregex.permanent=true"
+        networks:
+            - shared-proxy
+
+    chez_evariste_db:
+        image: mysql:5.7
+        restart: always
+        environment:
+            MYSQL_DATABASE: ${CHEZ_EVARISTE_WORDPRESS_DB_NAME}
+            MYSQL_USER: ${CHEZ_EVARISTE_WORDPRESS_DB_USER}
+            MYSQL_PASSWORD: ${CHEZ_EVARISTE_WORDPRESS_DB_PASSWORD}
+            MYSQL_RANDOM_ROOT_PASSWORD: '1'
+        volumes:
+            - /var/chez_evariste_db:/var/lib/mysql
+        networks:
+            - shared-proxy
+
+networks:
+    shared-proxy:
+        external: true
